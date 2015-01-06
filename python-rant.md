@@ -257,10 +257,29 @@ the server inside everu webapplication.
 
 Required to be mentioned and considered is that they
 
+More details about them can be found everywhere on the net, for example, at digitalocean:
+<https://www.digitalocean.com/community/tutorials/a-comparison-of-web-servers-for-python-based-web-applications>
+
 * [uwsgi](http://uwsgi-docs.readthedocs.org)
 	- Doesn't build without a C compiler
+* [fapws3](http://www.fapws.org/getting-started)
+	- dependencies
+	- `Could not find a version that satisfies the requirement fapws3 (from versions: 0.10.dev, 0.11.dev, 0.4.dev, 0.5.dev, 0.6.dev, 0.8.1.dev, 0.8.dev, 0.9.dev)`
 
 
+* [waitress](http://waitress.readthedocs.org/en/latest/)
+	- Default in Pyramid/Pylons
+	- Pure python, works with sockets
+
+* [gunicorn](http://docs.gunicorn.org/en/latest/deploy.html)
+	- Pure python, works with sockets
+
+* [cherrypy](http://docs.cherrypy.org/en/latest/deploy.html)
+	- pure python,
+	- unsure how it works with sockets <http://docs.cherrypy.org/en/latest/pkg/cherrypy.html?highlight=domain%20socket#cherrypy._cpserver.Server>?
+
+* [tornado](http://tornado.readthedocs.org/en/latest/wsgi.html)
+	- Not properly evaluated.
 
 ## Starting per-site/app services
 Because writing init-scripts in sysvinit is a pain in the rear, and writing
@@ -273,7 +292,6 @@ shellscripts (because scl & virtualenv) in order to run our web applications.
 Maybe I'll write both here and see what happens?
 
 
-## Port
 ### starting from a minimal install:
 ```
 yum distro-sync
@@ -289,11 +307,44 @@ yum install https://www.softwarecollections.org/en/scls/rhscl/python33/epel-6-x8
 yum install python33 python27
 ```
 
+## Template application
+
+user: should have a home directory that is _not_ in the application root
+useradd template
+
+/srv/template.example.com/
+/srv/template.example.com/listen.socket -       unix domain socket
+/srv/template.example.com/app/launch.sh	-       shellscript that launches webserver (or symlink)
+/srv/template.example.com/app/deploy.sh -       script that does install related deployment steps
+/srv/template.example.com/venv		-	symlink to current virtualenv
+/srv/template.example.com/app		-	symlink to current code checkout (not the same as virtualenv)
+/srv/template.example.com/app.ini	-	symlink to current ini file
 
 
-scl enable python27 bash
-virtualenv test
+
+With configuration management ( puppet module, macro, what you want)
+
+for each webapp
+	create a $webapp-user
+	create $webapp-user homedir
+	lock $webapp-user passwords (only allowing keys)
+	Attach deployers ssh-pubkeys
+	create a $webapp-deploy in /srv/$webapp.example.com/
+	ensure permissions are tight on /srv/$webapp.example.com/
+	drop in an nginx.conf snippet in /etc/nginx/sites.d/$webapp.example.com.conf
+	drop in template.example.com launcher into /etc/upstart (etc/init?)
+	drop in tls private keys & auth in /srv/$webapp.example.com/state
 
 
+
+
+
+
+
+
+
+# Misc stuff I found & enjoyed
 
 Deploying FastCGI documentation  <http://flask.pocoo.org/docs/0.10/deploying/fastcgi/>
+some benchmarks from 4 years ago <http://nichol.as/benchmark-of-python-web-servers>
+
