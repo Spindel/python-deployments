@@ -112,7 +112,7 @@ downloaded via pip or easy_install, in many cases, it doesn't go over https
 and up until recently, python by default didn't even check the SSL certificates.
 ( Pip has checked certificates since v1.3, if it could. )
 
-Deploying python code is an exercise in leap of faith and misplaced trust.
+Deploying (python code) is an exercise in leap of faith and misplaced trust.
 You trust that noone fucked with your wifi connection while you were making a
 virtualenv. You trust that you didn't have a modifying endpoint/malicious proxy
 at the
@@ -175,12 +175,125 @@ probably not be covered here.
 
 Various scripts & tools to run & deploy will be found here.
 
+# Considerations
+There are two major ways of doing this kind of deployment. Some kind of
+"application mode" like WSGI, FastCGI,  or a "webserver mode" where your service
+binds to a socket and talks HTTP.
+
+## FastCGI + flup
+FastCGI requires *flup* to work, and *flup* hasn't had a release yet for python3,
+leaving you to download a random snapshot from the flup mercurial project page.
+Over cleartext HTTP. You can imagine how thrilled I am.
+
+Other than that, flup is quite nice for what it does, which is wrap WSGI inside
+FastCGI and making it work.
+
+## WSGI native mode
+WSGI is primarily deployed with mod_wsgi or uwsgi (which in fact doesn't
+communicate with WSGI, but their own uWSGI protocol, that is not the same),
+mod_wsgi ties you to Apache or a patched (or external) module for nginx,
+while uwsgi is a generic app-starter, webserver & web-service manager.
+
+WSGI is also not supported in Lighttpd.
+
+## HTTP servers
+HTTP can be served in two modes, locally bound tcp/ip socket ( "localhost:8080"
+or a unix domain socket. Common for both of these is that your whole web-app
+needs to speak HTTP itself. This is not a major concern, as all(?)  frameworks
+in python already support this for development.
+
+Binding to local ports can result in interesting conflicts, as there is no way
+of -preventing- another local daemon from kidnapping a "dedicated" application
+port, which will lead you down the corridor of hours of debugging trying to find
+out what went wrong.
+
+Instead, binding to a known socket location for each web-application is to be
+preferred. This means we can use standard filesystem permissions to lock down
+access to sockets.
+
+
 # CentOS 6
-starting from a minimal install:
+First, we have to chose a webserver. As I already run both nginx, apache and
+lighttpd in production, I'll go with *nginx*.
+
+For this platform, there's no native *uwsgi* package, so uwsg in emperor mode is
+off. (further on, the uwsgi getting started documentation recommends
+"build from source". Plus one penalty.)
+
+## Considerations for launchers
+* [systemd](http://www.freedesktop.org/wiki/Software/systemd/)
+	- not available on CentOS 6
+	- simple, socket activation
+
+* [upstart](http://upstart.ubuntu.com/cookbook/)
+	- already included. Simple enough to write scripts for.
+
+* [runit](http://smarden.org/runit/)
+	- simple, Functionally replaced by upstart/systemd
+
+* [supervisor2](http://supervisord.org/running.html)
+	- installable with package, one config file section for each app
+	- May need to be combined with shellscripts for ease of life.
+	- no real win over upstart/systemd
+
+* [simplevisor](https://github.com/cern-mig/python-simplevisor/)
+	- Expects to control system services as well as application services
+	- no real win over upstart/systemd
+
+* [mod_wsgi](https://code.google.com/p/modwsgi/)
+	- Only upstream in apache
+	- Links against python, can only run single version of python
+	- SCL has more versions, but can only use one of them.
+
+* [uwsgi emperor](http://uwsgi-docs.readthedocs.org/en/latest/Emperor.html)
+	- no package, local install says `configure; make; make install` (or
+	 let python do those steps when you install it with pip)
+	- requires C compiler on each install
+	- Needs to build and link against each python version
+
+## Considerations for webservers
+The following are what I went through for evaluation for each webapp, as in,
+the server inside everu webapplication.
+
+Required to be mentioned and considered is that they
+
+* [uwsgi](http://uwsgi-docs.readthedocs.org)
+	- Doesn't build without a C compiler
+
+
+
+## Starting per-site/app services
+Because writing init-scripts in sysvinit is a pain in the rear, and writing
+upstart jobs is a tad painful when it comes to the `expect daemon|fork` as well
+as `respawn`. We can do it, but there's very little win over using something
+like supervisord.
+On the _other_ hand, all we do with our supervisord jobs is to start
+shellscripts (because scl & virtualenv) in order to run our web applications.
+
+Maybe I'll write both here and see what happens?
+
+
+## Port
+### starting from a minimal install:
+```
 yum distro-sync
 yum install epel-release
+yum install nginx scl-utils
+```
+Get your python3 and 2.7 software collections:
+<https://www.softwarecollections.org/en/scls/rhscl/python33/>
+<https://www.softwarecollections.org/en/scls/rhscl/python27/>
+```
+yum install https://www.softwarecollections.org/en/scls/rhscl/python27/epel-6-x86_64/download/rhscl-python27-epel-6-x86_64.noarch.rpm
+yum install https://www.softwarecollections.org/en/scls/rhscl/python33/epel-6-x86_64/download/rhscl-python33-epel-6-x86_64.noarch.rpm
+yum install python33 python27
+```
 
 
 
+scl enable python27 bash
+virtualenv test
 
 
+
+Deploying FastCGI documentation  <http://flask.pocoo.org/docs/0.10/deploying/fastcgi/>
