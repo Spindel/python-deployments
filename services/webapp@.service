@@ -1,0 +1,19 @@
+[Unit]
+Description=%i webapp 
+
+[Service]
+User=%i
+Group=%i
+
+ExecStart=/srv/webapp %i
+WorkingDirectory=/srv/%i.modio.se
+
+
+PrivateTmp=true
+Type=simple
+Restart=always
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target
+
